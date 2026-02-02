@@ -1,7 +1,9 @@
 // src/pages/DashboardPage.js
-import React, { useState, useEffect, useCallback } from 'react';
-import WebcamFeed from '../components/WebcamFeed';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Video, Bell, User, Clock, MapPin, TrendingUp } from 'lucide-react';
+
+// Lazy load WebcamFeed to avoid SSR build errors
+const WebcamFeed = lazy(() => import('../components/WebcamFeed'));
 
 const FaceCard = ({ face }) => {
   const isAuthorized = !face.isUnknown;
@@ -265,7 +267,16 @@ const DashboardPage = () => {
               <Video className="mr-2" />
               Live Feed
             </h2>
-            <WebcamFeed onFaceDetected={handleFaceDetected} isActive={true} />
+            <Suspense fallback={
+    <div className="bg-black rounded-lg aspect-video flex items-center justify-center shadow-lg">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-white text-lg">Loading camera component...</p>
+      </div>
+    </div>
+  }>
+    <WebcamFeed onFaceDetected={handleFaceDetected} isActive={true} />
+  </Suspense>
           </div>
 
           {/* Recently Recognized Faces */}

@@ -1,8 +1,8 @@
-// src/components/WebcamFeed.js
+// src/components/WebcamFeed.js - FIXED VERSION
 import React, { useRef, useEffect, useState } from 'react';
 import Webcam from 'react-webcam';
 import faceRecognitionService from '../utils/faceRecognition';
-import { Video, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   const webcamRef = useRef(null);
@@ -13,26 +13,31 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   const detectionIntervalRef = useRef(null);
   const fpsIntervalRef = useRef(null);
   const frameCountRef = useRef(0);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   useEffect(() => {
     initializeFaceRecognition();
     return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
-      if (fpsIntervalRef.current) {
-        clearInterval(fpsIntervalRef.current);
-      }
+      cleanup();
     };
   }, []);
 
   useEffect(() => {
-    if (isActive && !isLoading) {
+    if (isActive && !isLoading && isVideoReady) {
       startDetection();
     } else {
       stopDetection();
     }
-  }, [isActive, isLoading]);
+  }, [isActive, isLoading, isVideoReady]);
+
+  const cleanup = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+    }
+    if (fpsIntervalRef.current) {
+      clearInterval(fpsIntervalRef.current);
+    }
+  };
 
   const initializeFaceRecognition = async () => {
     try {
@@ -49,15 +54,12 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   };
 
   const startDetection = () => {
-    // Stop any existing interval
     stopDetection();
 
-    // Start face detection loop
     detectionIntervalRef.current = setInterval(() => {
       detectFaces();
-    }, 100); // Check every 100ms (10 FPS)
+    }, 100);
 
-    // Start FPS counter
     fpsIntervalRef.current = setInterval(() => {
       setFps(frameCountRef.current);
       frameCountRef.current = 0;
@@ -76,20 +78,21 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   };
 
   const detectFaces = async () => {
-    if (
-      !webcamRef.current ||
-      !webcamRef.current.video ||
-      webcamRef.current.video.readyState !== 4 ||
-      !canvasRef.current
-    ) {
-      return;
-    }
+    // CRITICAL: Extensive null checks
+    if (!webcamRef.current) return;
+    if (!webcamRef.current.video) return;
+    if (!canvasRef.current) return;
+    
+    const video = webcamRef.current.video;
+    
+    // Check if video is ready and has valid dimensions
+    if (video.readyState !== 4) return;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
     try {
-      const video = webcamRef.current.video;
       const canvas = canvasRef.current;
 
-      // Set canvas size to match video
+      // Set canvas dimensions to match video (only if changed)
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -98,36 +101,60 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
       // Detect faces
       const detections = await faceRecognitionService.detectFaces(video);
 
-      if (detections.length > 0) {
-        // Recognize each detected face
-        const recognitionResults = await Promise.all(
-          detections.map(detection => 
-            faceRecognitionService.recognizeFace(detection.descriptor)
-          )
+      // Only proceed if we have valid detections
+      if (detections && detections.length > 0) {
+        // Validate detections have proper structure
+        const validDetections = detections.filter(d => 
+          d && 
+          d.detection && 
+          d.detection.box &&
+          d.detection.box.x != null &&
+          d.detection.box.y != null &&
+          d.detection.box.width != null &&
+          d.detection.box.height != null
         );
 
-        // Draw detections on canvas
-        faceRecognitionService.drawDetections(canvas, detections, recognitionResults);
+        if (validDetections.length > 0) {
+          // Recognize each detected face
+          const recognitionResults = await Promise.all(
+            validDetections.map(detection => 
+              faceRecognitionService.recognizeFace(detection.descriptor)
+            )
+          );
 
-        // Notify parent component
-        if (onFaceDetected) {
-          const facesData = recognitionResults.map((result, index) => ({
-            ...result,
-            detection: detections[index],
-            timestamp: new Date().toISOString(),
-          }));
-          onFaceDetected(facesData);
+          // Draw detections on canvas
+          faceRecognitionService.drawDetections(canvas, validDetections, recognitionResults);
+
+          // Notify parent component
+          if (onFaceDetected) {
+            const facesData = recognitionResults.map((result, index) => ({
+              ...result,
+              detection: validDetections[index],
+              timestamp: new Date().toISOString(),
+            }));
+            onFaceDetected(facesData);
+          }
+
+          frameCountRef.current++;
         }
-
-        frameCountRef.current++;
       } else {
         // Clear canvas if no faces detected
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
       }
     } catch (err) {
       console.error('Error in face detection:', err);
+      // Don't set error state for individual detection failures
     }
+  };
+
+  const handleUserMedia = () => {
+    // Wait a bit for video to be fully ready
+    setTimeout(() => {
+      setIsVideoReady(true);
+    }, 500);
   };
 
   const videoConstraints = {
@@ -144,6 +171,12 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
           <div>
             <p className="font-bold">Error</p>
             <p className="text-sm">{error}</p>
+            <button 
+              onClick={initializeFaceRecognition}
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>
@@ -158,6 +191,7 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
         screenshotFormat="image/jpeg"
         videoConstraints={videoConstraints}
         className="w-full h-auto"
+        onUserMedia={handleUserMedia}
         onUserMediaError={(err) => {
           console.error('Webcam error:', err);
           setError('Failed to access webcam. Please check permissions.');
@@ -165,7 +199,7 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
       />
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 w-full h-full"
+        className="absolute top-0 left-0 w-full h-full pointer-events-none"
       />
       
       {isLoading && (
@@ -176,16 +210,22 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
         </div>
       )}
 
+      {!isVideoReady && !isLoading && (
+        <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center">
+          <p className="text-white text-lg">Initializing camera...</p>
+        </div>
+      )}
+
       {/* Status overlay */}
       <div className="absolute top-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg flex items-center space-x-2">
-        <div className={`w-2 h-2 rounded-full ${isActive && !isLoading ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+        <div className={`w-2 h-2 rounded-full ${isActive && !isLoading && isVideoReady ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
         <span className="text-sm font-medium">
-          {isLoading ? 'Loading...' : isActive ? 'Live' : 'Paused'}
+          {isLoading ? 'Loading...' : !isVideoReady ? 'Starting...' : isActive ? 'Live' : 'Paused'}
         </span>
       </div>
 
       {/* FPS counter */}
-      {!isLoading && (
+      {!isLoading && isVideoReady && (
         <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg">
           <span className="text-sm font-medium">{fps} FPS</span>
         </div>
