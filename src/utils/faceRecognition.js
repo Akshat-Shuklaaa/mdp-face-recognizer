@@ -11,6 +11,18 @@ class FaceRecognitionService {
     });
   }
 
+  isValidBox(box) {
+    return (
+      box &&
+      Number.isFinite(box.x) &&
+      Number.isFinite(box.y) &&
+      Number.isFinite(box.width) &&
+      Number.isFinite(box.height) &&
+      box.width > 0 &&
+      box.height > 0
+    );
+  }
+
   // Load face-api.js models
   async loadModels() {
     if (this.isModelLoaded) return;
@@ -45,7 +57,7 @@ class FaceRecognitionService {
         .withFaceLandmarks()
         .withFaceDescriptors();
       
-      return detections;
+      return detections.filter(d => this.isValidBox(d && d.detection && d.detection.box));
     } catch (error) {
       console.error('Error detecting faces:', error);
       return [];
@@ -168,7 +180,8 @@ class FaceRecognitionService {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     detections.forEach((detection, index) => {
-      const box = detection.detection.box;
+      const box = detection && detection.detection && detection.detection.box;
+      if (!this.isValidBox(box)) return;
       const result = recognitionResults[index];
 
       // Draw bounding box

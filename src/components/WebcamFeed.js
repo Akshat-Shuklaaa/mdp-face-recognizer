@@ -14,10 +14,13 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   const fpsIntervalRef = useRef(null);
   const frameCountRef = useRef(0);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const isDetectingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     initializeFaceRecognition();
     return () => {
+      isMountedRef.current = false;
       cleanup();
     };
   }, []);
@@ -78,6 +81,8 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
   };
 
   const detectFaces = async () => {
+    if (isDetectingRef.current) return;
+
     // CRITICAL: Extensive null checks
     if (!webcamRef.current) return;
     if (!webcamRef.current.video) return;
@@ -88,6 +93,9 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
     // Check if video is ready and has valid dimensions
     if (video.readyState !== 4) return;
     if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    if (video.paused || video.ended) return;
+
+    isDetectingRef.current = true;
 
     try {
       const canvas = canvasRef.current;
@@ -100,6 +108,8 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
 
       // Detect faces
       const detections = await faceRecognitionService.detectFaces(video);
+
+      if (!isMountedRef.current) return;
 
       // Only proceed if we have valid detections
       if (detections && detections.length > 0) {
@@ -147,6 +157,8 @@ const WebcamFeed = ({ onFaceDetected, isActive = true }) => {
     } catch (err) {
       console.error('Error in face detection:', err);
       // Don't set error state for individual detection failures
+    } finally {
+      isDetectingRef.current = false;
     }
   };
 

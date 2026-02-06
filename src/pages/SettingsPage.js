@@ -167,19 +167,19 @@ const SettingsPage = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Settings</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-blue-200 mb-6 transition-colors hover:text-blue-600 dark:hover:text-blue-400">Settings</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Management Section */}
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-black transition-colors hover:text-blue-600 dark:hover:text-blue-400 flex items-center">
               <Users className="mr-2" />
               Registered Users ({registeredUsers.length})
             </h2>
             <button 
               onClick={() => setShowRegistration(true)}
-              className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              className="bg-blue-600 text-black py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
             >
               <UserPlus className="mr-2" size={20} />
               Register New Face
@@ -207,7 +207,7 @@ const SettingsPage = () => {
 
         {/* Notification Settings Section */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-black mb-4 transition-colors hover:text-blue-600 dark:hover:text-blue-400 flex items-center">
             <Bell className="mr-2" />
             Notification Preferences
           </h2>
@@ -232,7 +232,7 @@ const SettingsPage = () => {
 
         {/* Detection Settings */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-black mb-4 transition-colors hover:text-blue-600 dark:hover:text-blue-400 flex items-center">
             <Shield className="mr-2" />
             Detection Settings
           </h2>
@@ -275,7 +275,7 @@ const SettingsPage = () => {
 
         {/* Data Management Section */}
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-black mb-4 transition-colors hover:text-blue-600 dark:hover:text-blue-400 flex items-center">
             <Database className="mr-2" />
             Data Management
           </h2>
